@@ -28,7 +28,167 @@ $SIG{'ALRM'} = sub {
 };
 alarm($timeout);
 
-### subroutines
+## Check nodes (option -n)
+#
+# Check the status of the cluster nodes.
+# Status check:
+#    - Online  -> [ OK ]
+#    - Offline -> [ CRITICAL ]
+#
+
+if (($opt_nodes) or ($opt_all)){
+        open (NODE_STATUS, "$cluster_binary/clnode status |")
+                or die "Couldn't execute program: $!";
+        while (<NODE_STATUS>){
+                next unless /(Node Name)/;
+                my $match = $1;
+                print "[$match]\n";
+                my $line = <NODE_STATUS>; # discard dashes
+                while (!eof){
+                        if ( !(($line=<NODE_STATUS>) =~ /^\s*$/) ){
+                                print "read: $line";
+                        }
+                }
+        }
+        close(NODE_STATUS);
+}
+
+## Check quorum (option -q)
+#
+# Check the status and vote counts of quorum devices.
+# Node status  Service status
+# -----------  -------------
+#   Online   -> [ OK ]
+#   Offline  -> [ CRITICAL ]
+#
+# Votes are not checked
+#    
+
+if (($opt_quorum) or ($opt_all)){
+        open (QUORUM_STATUS, "$cluster_binary/clquorum status |")
+                or die "Couldn't execute program: $!";
+        while (<QUORUM_STATUS>){
+                next unless /((Needed)|(Node Name)|(Device Name))/;
+                my $match = $1;
+                print "[$match]\n";
+                my $line = <QUORUM_STATUS>; # discard dashes
+
+                # useless label to remark that this is a case statement in disguise
+                CASES:
+                "Needed" eq $match && do {
+                        $line=<QUORUM_STATUS>;
+                        print "read: $line";
+                        next;
+                };
+                "Node Name" eq $match && do {
+                        while ( ! (($line=<QUORUM_STATUS>) =~ /^\s*$/) ){
+                                print "read: $line";
+                        }
+                };
+                "Device Name" eq $match && do {
+                        while ( ! (($line=<QUORUM_STATUS>) =~ /^\s*$/) ){
+                                print "read: $line";
+                        }
+                };
+        }
+        close(QUORUM_STATUS);
+}
+
+## Check transport paths (option -t)
+#
+# Check the status of the interconnect paths.
+#
+# Transport status  Service status
+# ----------------  --------------
+#   Path online   -> [ OK ]
+#   waiting       -> [ WARNING ]
+#   faulted       -> [ CRITICAL ]
+#
+
+if (($opt_transport) or ($opt_all)){
+        open (TRANSPORT_STATUS, "$cluster_binary/clintr status |")
+                or die "Couldn't execute program: $!";
+        while (<TRANSPORT_STATUS>){
+                next unless /(Endpoint)/;
+                my $match = $1;
+                print "[$match]\n";
+                my $line = <TRANSPORT_STATUS>; # discard dashes
+                while (!eof){
+                        if ( ! (($line=<TRANSPORT_STATUS>) =~ /^\s*$/) ){
+                                print "read: $line";
+                        }
+                }
+        }
+        close(TRANSPORT_STATUS);
+}
+
+## Check resource groups (option -g)
+#
+# Check status for resource groups
+#
+# Resources status  Service status
+# ----------------  --------------
+#   Degraded      -> [ CRITICAL ]
+#   Faulted       -> [ CRITICAL ]
+#   Offline       -> [ CRITICAL ]
+#   Online        -> [ OK ]
+#   Unknown       -> [ WARNING ]
+#
+
+if (($opt_groups) or ($opt_all)){
+        open (GROUP_STATUS, "$cluster_binary/clrg status |")
+                or die "Couldn't execute program: $!";
+        while (<GROUP_STATUS>){
+                next unless /(Group Name)/;
+                my $match = $1;
+                print "[$match]\n";
+                my $line = <GROUP_STATUS>; # discard dashes
+                while (!eof){
+                        if ( ! (($line=<GROUP_STATUS>) =~ /^\s*$/) ){
+                               print "read: $line";
+                        }
+                }
+        }
+        close(GROUP_STATUS);
+}
+
+## Check resources (option -r)
+#
+# Check the status of the resources.
+#
+# Resources status       Service status
+# ----------------       --------------
+# Online               -> [ OK ]
+# Offline              -> [ CRITICAL ]
+# Start_failed         -> [ CRITICAL ]
+# Stop_failed          -> [ CRITICAL ]
+# Monitor_failed       -> [ CRITICAL ]
+# Online_not_monitored -> [ WARNING ]
+# Starting             -> [ WARNING ]
+# Stopping             -> [ CRITICAL ]
+# Not_online           -> [ CRITICAL ]
+#
+
+if (($opt_resources) or ($opt_all)){
+        open (RESOURCES_STATUS, "$cluster_binary/clrs status |")
+                or die "Couldn't execute program: $!";
+        while (<RESOURCES_STATUS>){
+                next unless /(Resource Name)/;
+                my $match = $1;
+                print "[$match]\n";
+                my $line = <RESOURCES_STATUS>; # discard dashes
+                while (!eof){
+                        if ( ! (($line=<RESOURCES_STATUS>) =~ /^\s*$/) ){
+                               print "read: $line";
+                        }
+                }
+
+        }
+        close(RESOURCES_STATUS);
+}
+
+
+### Subroutines
 
 sub print_usage() {
 	printf "\n";
