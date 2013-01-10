@@ -12,7 +12,7 @@ use vars qw($timeout $opt_V $opt_h $opt_nodes $opt_quorum $opt_transport $opt_gr
 
 my $PROGNAME = "check_sun_cluster";
 my $VERSION = "1.0";
-my $BIN_PATH = "/root/check_sun_cluster_plugin";
+my $BIN_PATH = "/usr/cluster/bin";
 
 sub print_help();
 sub print_usage();
