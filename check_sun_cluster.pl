@@ -63,7 +63,7 @@ my $num_options = 0;
 #    - Offline -> [ CRITICAL ]
 
 my $nodes_check = 0;
-my $nodes_status = 0; # Nagios status code for nodes checking
+my $nodes_status = 0;
 if (($opt_nodes) or ($opt_all)){
         $num_options++;
         $nodes_check = 1;
@@ -112,24 +112,35 @@ if (($opt_nodes) or ($opt_all)){
 
 }
 
-## Check quorum (option -q)
+# Check quorum (option -q)
 #
-# Check the status and vote counts of quorum devices.
+# Check the status and vote counts of quorum devices (using the commnad 'clquorum').
 # Node status  Service status
 # -----------  -------------
 #   Online   -> [ OK ]
 #   Offline  -> [ CRITICAL ]
 #
 # Votes are not checked
-#    
 
+my $quorum_check= 0;
+my $quorum_status = 0;
 if (($opt_quorum) or ($opt_all)){
+        $num_options++;
+        $quorum_check = 1;
+        my %quorum_cluster_status = ( "Online"  => "OK",
+                                      "Offline" => "CRITICAL"
+                                    );
+        my ($votes_needed, $votes_present, $votes_possible);
+        my @nodes;
+        my @devices;
+
+	# Run the command 'clquorum status' and get a list
+        # of votes, nodes and devices with their status
         open (QUORUM_STATUS, "$cluster_binary/clquorum status |")
                 or die "Couldn't execute program: $!";
         while (<QUORUM_STATUS>){
                 next unless /((Needed)|(Node Name)|(Device Name))/;
                 my $match = $1;
-                print "[$match]\n";
                 my $line = <QUORUM_STATUS>; # discard dashes
 
                 # useless label to remark that this is a case statement in disguise
@@ -137,21 +148,61 @@ if (($opt_quorum) or ($opt_all)){
                 "Needed" eq $match && do {
                         $line=<QUORUM_STATUS>;
                         print "read: $line";
+                        (my $space, $votes_needed, $votes_present, $votes_possible) = split(/[ \t]+/, $line);
+                        chomp $votes_possible;
                         next;
                 };
                 "Node Name" eq $match && do {
                         while ( ! (($line=<QUORUM_STATUS>) =~ /^\s*$/) ){
                                 print "read: $line";
+                                my ($node, $present, $possible, $status) = split(/[ \t]+/, $line);
+                                chomp $status;
+                                my %node = ("name"=>$node, "present"=>$present,
+                                            "possible"=>$possible, "status"=>$status);
+                                push @nodes, \%node;
                         }
                 };
-                "Device Name" eq $match && do {
+		"Device Name" eq $match && do {
                         while ( ! (($line=<QUORUM_STATUS>) =~ /^\s*$/) ){
                                 print "read: $line";
+                                my ($device, $present, $possible, $status) = split(/[ \t]+/, $line);
+                                chomp $status;
+                                my %device = ("name"=>$device, "present"=>$present,
+                                              "possible"=>$possible, "status"=>$status);
+                                push @devices, \%device;
                         }
                 };
         }
         close(QUORUM_STATUS);
+
+        # Check quorum votes summary
+        # NOTE: No votes checking for now
+        my $msgs;
+        my $msg = "votes needed:$votes_needed votes present:$votes_present votes possible:$votes_possible";
+        if ( ! exists $quorum_status_msg{"OK"}){
+                $msgs = [];
+        } else {
+                $msgs = $quorum_status_msg{"OK"};
+        }
+        push @$msgs, $msg;
+        $quorum_status_msg{"OK"} = $msgs;
+
+        # Check quorum by node and by device
+        foreach ( (@nodes, @devices) ) {
+                my $msg = "$_->{name} $_->{status}";
+                my $msgs;
+                my $quorum_status_str = $quorum_cluster_status{$_->{status}};
+                if ( ! exists $quorum_status_msg{$quorum_status_str} ){
+                        $msgs = [];
+                } else {
+                        $msgs = $quorum_status_msg{$quorum_cluster_status{$_->{status}}};
+                }
+                $quorum_status = $service_status_str{$quorum_status_str} if ( $service_status_str{$quorum_status_str} > $quorum_status );
+                push @$msgs, $msg;
+                $quorum_status_msg{$quorum_cluster_status{$_->{status}}} = $msgs;
+        }
 }
+
 
 ## Check transport paths (option -t)
 #
