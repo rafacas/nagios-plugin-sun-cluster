@@ -28,29 +28,88 @@ $SIG{'ALRM'} = sub {
 };
 alarm($timeout);
 
-## Check nodes (option -n)
+# Nagios service status: OK < WARNING < CRITICAL < UNKNOWN
+my %service_status_str = ( "OK"       => 0,
+                           "WARNING"  => 1,
+                           "CRITICAL" => 2,
+                           "UNKNOWN"  => 3
+                         );
+my %service_status = ( 0 => "OK",
+                       1 => "WARNING",
+                       2 => "CRITICAL",
+                       3 => "UNKNOWN"
+                     );
+
+# Messages to return to Nagios
+# status_msg { "OK" => [ ok_msgs ],
+#              "WARNING" => [ warning_msgs ],
+#              "CRITICAL" => [ critical_msgs ],
+#              "UNKNOWN" => [ unknown_msgs ]
+#            }
+my %nodes_status_msg = ();
+my %quorum_status_msg = ();
+my %transport_status_msg = ();
+my %groups_status = ();
+my %resources_status = ();
+
+# Number of options executed
+my $num_options = 0; 
+
+# Check nodes (option -n)
 #
-# Check the status of the cluster nodes.
+# Check the status of the cluster nodes (using the command 'clnode').
 # Status check:
 #    - Online  -> [ OK ]
 #    - Offline -> [ CRITICAL ]
-#
 
+my $nodes_check = 0;
+my $nodes_status = 0; # Nagios status code for nodes checking
 if (($opt_nodes) or ($opt_all)){
+        $num_options++;
+        $nodes_check = 1;
+
+        # Nodes and Nagios status equivalence
+        my %nodes_cluster_status = ( "Online"  => "OK",
+                                     "Offline" => "CRITICAL"
+                                   );
+
+	# Run the command 'clnode status' and get a list
+	# of nodes and their status
+        my @nodes;
         open (NODE_STATUS, "$cluster_binary/clnode status |")
                 or die "Couldn't execute program: $!";
         while (<NODE_STATUS>){
                 next unless /(Node Name)/;
                 my $match = $1;
-                print "[$match]\n";
                 my $line = <NODE_STATUS>; # discard dashes
                 while (!eof){
                         if ( !(($line=<NODE_STATUS>) =~ /^\s*$/) ){
-                                print "read: $line";
+				print "read: $line";
+                                my ($node, $status) = split(/[ \t]+/, $line);
+                                chomp $status;
+                                my %node = ("name"=>$node, "status"=>$status);
+                                push @nodes, \%node;
                         }
                 }
         }
-        close(NODE_STATUS);
+        close (NODE_STATUS);
+
+	# Generate the Nagios node status depending on the status at @nodes
+	# Add the status messages to %nodes_status_msg
+        foreach (@nodes){
+                my $msg = "$_->{name} $_->{status}";
+                my $msgs;
+                my $node_status_str = $nodes_cluster_status{$_->{status}};
+                if ( ! exists $nodes_status_msg{$node_status_str} ){
+                        $msgs = [];
+                } else {
+                        $msgs = $nodes_status_msg{$nodes_cluster_status{$_->{status}}};
+                }
+                $nodes_status = $service_status_str{$node_status_str} if ( $service_status_str{$node_status_str} > $nodes_status );
+                push @$msgs, $msg;
+                $nodes_status_msg{$nodes_cluster_status{$_->{status}}} = $msgs;
+        }
+
 }
 
 ## Check quorum (option -q)
