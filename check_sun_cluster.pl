@@ -68,7 +68,7 @@ if (($opt_nodes) or ($opt_all)){
         $num_options++;
         $nodes_check = 1;
 
-        # Nodes and Nagios status equivalence
+        # Nodes and Nagios status equivalences
         my %nodes_cluster_status = ( "Online"  => "OK",
                                      "Offline" => "CRITICAL"
                                    );
@@ -127,6 +127,7 @@ my $quorum_status = 0;
 if (($opt_quorum) or ($opt_all)){
         $num_options++;
         $quorum_check = 1;
+        # Quorum and Nagios status equivalences
         my %quorum_cluster_status = ( "Online"  => "OK",
                                       "Offline" => "CRITICAL"
                                     );
@@ -215,22 +216,56 @@ if (($opt_quorum) or ($opt_all)){
 #   faulted       -> [ CRITICAL ]
 #
 
+my $transport_check = 0;
+my $transport_status = 0;
 if (($opt_transport) or ($opt_all)){
+        $num_options++;
+        $transport_check = 1;
+	# Transport and Nagios status equivalences
+        my %transport_cluster_status = ( "Path online" => "OK",
+                                         "waiting"     => "WARNING",
+                                         "faulted"     => "CRITICAL"
+                                      );
+	# Run the command 'clntr status' and get a list
+        # of the status of the transport paths
+        my @paths;
         open (TRANSPORT_STATUS, "$cluster_binary/clintr status |")
                 or die "Couldn't execute program: $!";
         while (<TRANSPORT_STATUS>){
                 next unless /(Endpoint)/;
                 my $match = $1;
-                print "[$match]\n";
                 my $line = <TRANSPORT_STATUS>; # discard dashes
                 while (!eof){
                         if ( ! (($line=<TRANSPORT_STATUS>) =~ /^\s*$/) ){
-                                print "read: $line";
+				print "read: $line";
+                                my ($endpoint1, $endpoint2, @status) = split(/[ \t]+/, $line);
+                                my $status_str = join (" ", @status);
+                                chomp $status_str;
+                                my %path = ("endpoint1"=>$endpoint1, "endpoint2"=>$endpoint2, "status"=>$status_str);
+                                push @paths, \%path;
+
                         }
                 }
         }
         close(TRANSPORT_STATUS);
+
+        # Check path status and "calculate" the service status and messages
+        foreach (@paths){
+                my $msg = "$_->{endpoint1}-$_->{endpoint2} $_->{status}";
+                my $msgs;
+                my $path_status_str = $transport_cluster_status{$_->{status}};
+                if ( ! exists $transport_status_msg{$path_status_str} ){
+                        $msgs = [];
+                } else {
+                        $msgs = $transport_status_msg{$transport_cluster_status{$_->{status}}};
+                }
+                $transport_status = $service_status_str{$path_status_str} if ( $service_status_str{$path_status_str} > $transport_status );
+                push @$msgs, $msg;
+                $transport_status_msg{$transport_cluster_status{$_->{status}}} = $msgs;
+        }
+
 }
+
 
 ## Check resource groups (option -g)
 #
