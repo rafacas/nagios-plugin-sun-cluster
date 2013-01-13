@@ -454,8 +454,14 @@ if (($opt_resources) or ($opt_all)){
                 push @$msgs, "( ".$nodes_msgs.")";
                 $resources_status_msg{$resource_status_str} = $msgs;
         }
-
 }
+
+# Print return data
+print_cluster_status();
+
+#TODO: use $ERRORS{'OK'}
+exit 0;
+
 
 ### Subroutines
 
@@ -495,6 +501,99 @@ sub get_status {
         } else {
                 return $status_str;
         }
+}
+
+sub cluster_status {
+        my $cluster_status = 0;
+
+        $cluster_status = $nodes_status if ( $nodes_status > $cluster_status );
+        $cluster_status = $quorum_status if ( $quorum_status > $cluster_status );
+        $cluster_status = $transport_status if ( $transport_status > $cluster_status );
+        $cluster_status = $groups_status if ( $groups_status > $cluster_status );
+        $cluster_status = $resources_status if ( $resources_status > $cluster_status );
+
+        return $service_status{$cluster_status};
+}
+
+sub get_msgs {
+        my $status_msgs = shift;
+        my $msg = "";
+
+        foreach ( ("UNKNOWN", "CRITICAL", "WARNING", "OK") ){
+                if ( exists $status_msgs->{$_} ) {
+                        my $msgs = $status_msgs->{$_};
+                        foreach ( @$msgs ){
+                                $msg = $msg . $_ . ". ";
+                        }
+                }
+        }
+
+        return $msg;
+}
+
+sub print_cluster_status {
+        my $nagios_msg = "";
+        $nagios_msg = cluster_status() . " - ";
+
+        my %cluster_status_msgs = ( "OK" => "",
+                                    "WARNING" => "",
+                                    "CRITICAL" => "",
+                                    "UNKNOWN" => "" );
+
+        # print nodes status
+        if ( $nodes_check == 1 ) {
+                my $nodes_status_str = $service_status{$nodes_status};
+                my $msg = $cluster_status_msgs{$nodes_status_str};
+                $msg = $msg . "[NODES $nodes_status_str]: ";
+                $msg = $msg . get_msgs ( \%nodes_status_msg );
+                $cluster_status_msgs{$nodes_status_str} = $msg;
+        }
+
+        # print quorum status
+        if ( $quorum_check == 1 ) {
+                my $quorum_status_str = $service_status{$quorum_status};
+                my $msg = $cluster_status_msgs{$quorum_status_str};
+                $msg = $msg . "[QUORUM $service_status{$quorum_status}]: ";
+                $msg = $msg . get_msgs ( \%quorum_status_msg );
+                $cluster_status_msgs{$quorum_status_str} = $msg;
+        }
+
+        # print transport status
+        if ( $transport_check == 1 ) {
+                my $transport_status_str = $service_status{$transport_status};
+                my $msg = $cluster_status_msgs{$transport_status_str};
+                $msg = $msg . "[TRANSPORT $service_status{$transport_status}]: ";
+                $msg = $msg . get_msgs ( \%transport_status_msg );
+                $cluster_status_msgs{$transport_status_str} = $msg;
+        }
+
+        # print groups status
+        if ( $groups_check == 1 ) {
+                my $groups_status_str = $service_status{$groups_status};
+                my $msg = $cluster_status_msgs{$groups_status_str};
+                $msg = $msg . "[GROUPS $service_status{$groups_status}]: ";
+                $msg = $msg . get_msgs ( \%groups_status_msg );
+                $cluster_status_msgs{$groups_status_str} = $msg;
+        }
+
+	# print resources status
+        if ( $resources_check == 1 ) {
+                my $resources_status_str = $service_status{$resources_status};
+                my $msg = $cluster_status_msgs{$resources_status_str};
+                $msg = $msg . "[RESOURCES $service_status{$resources_status}]: ";
+                $msg = $msg . get_msgs ( \%resources_status_msg );
+                $cluster_status_msgs{$resources_status_str} = $msg;
+        }
+
+        # print nagios message
+        print "$nagios_msg";
+        foreach ( ("UNKNOWN", "CRITICAL", "WARNING", "OK") ){
+                if ( exists $cluster_status_msgs{$_} ){
+                        print $cluster_status_msgs{$_};
+                }
+        }
+
+        print "\n";
 }
 
 sub print_usage() {
