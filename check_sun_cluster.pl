@@ -49,8 +49,8 @@ my %service_status = ( 0 => "OK",
 my %nodes_status_msg = ();
 my %quorum_status_msg = ();
 my %transport_status_msg = ();
-my %groups_status = ();
-my %resources_status = ();
+my %groups_status_msg = ();
+my %resources_status_msg = ();
 
 # Number of options executed
 my $num_options = 0; 
@@ -280,22 +280,84 @@ if (($opt_transport) or ($opt_all)){
 #   Unknown       -> [ WARNING ]
 #
 
+my $groups_check = 0;
+my $groups_status = 0;
+# Resources groups and Nagios status equivalences
+my %groups_cluster_status = ( "Degraded" => "CRITICAL",
+                              "Faulted"  => "CRITICAL",
+                              "Offline"  => "CRITICAL",
+                              "Online"   => "OK",
+                              "Unknown"  => "WARNING"
+                            );
+
 if (($opt_groups) or ($opt_all)){
+        $num_options++;
+        $groups_check = 1;
+	# Run the command 'clrg status' and get a list
+        # of the status of the cluster resource groups 
         open (GROUP_STATUS, "$cluster_binary/clrg status |")
                 or die "Couldn't execute program: $!";
+        # %groups = { "group_name" => [ %node1, %node2, ... ] }
+        # %node1 = { "node_name" => x, "suspended" => y, "status" => z }
+        my %groups = ();
         while (<GROUP_STATUS>){
                 next unless /(Group Name)/;
                 my $match = $1;
-                print "[$match]\n";
                 my $line = <GROUP_STATUS>; # discard dashes
+                my $group_name;
                 while (!eof){
-                        if ( ! (($line=<GROUP_STATUS>) =~ /^\s*$/) ){
-                               print "read: $line";
+                        $line = <GROUP_STATUS>;
+                        chomp $line;
+                        if ( $line =~ /^[^\s]/ ){
+                                # If the line starts with a non-space character => new group
+                                print "group: $line\n";
+                                my ($node_name, $suspended, $status);
+                                ($group_name, $node_name, $suspended, $status) = split (/[ \t]+/, $line);
+                                my %node = ( "node_name"=>$node_name, "suspended"=>$suspended, "status"=>$status );
+                                my @nodes = ( \%node );
+                                $groups{$group_name} = \@nodes;
+                        } elsif ( ! $line =~ /^\s*$/ ) {
+                                # If the line is not blank => node belongs to the previous group
+                                print "node: $line\n";
+                                my ($space, $node_name, $suspended, $status) = split(/[ \t]+/, $line);
+                                my %node = ( "node_name"=>$node_name, "suspended"=>$suspended, "status"=>$status );
+                                # TODO: if group_name is not defined => nagios UNKNOWN
+                                my @nodes = @{$groups{$group_name}};
+                                push @nodes, \%node;
+                                $groups{$group_name} = \@nodes;
+                        } else {
+                                # Blank line => End of group
+                                print "blank: $line\n";
                         }
                 }
         }
         close(GROUP_STATUS);
+
+        # Check groups status from %groups and "calculate" groups status (and messages)
+        foreach my $group_name ( keys %groups ){
+                my $group_msg;
+                my $group_status_str;
+                my $nodes_msgs = "";
+                my $msgs;
+                # Get the group message: all the nodes messages
+                foreach my $node ( @{$groups{$group_name}} ){
+                        $nodes_msgs = $nodes_msgs . "node:$node->{node_name} suspended:$node->{suspended} status:$node->{status} ";
+                }
+                # Get the status of the group (passed @nodes to the function).
+                $group_status_str = get_status('groups', @{$groups{$group_name}});
+                # Set the group status message
+                if ( ! exists $groups_status_msg{$group_status_str} ){
+                        $msgs = [];
+                } else {
+                        $msgs = $groups_status_msg{$group_status_str};
+                }
+                $groups_status = $service_status_str{$group_status_str} if ( $service_status_str{$group_status_str} > $groups_status );
+                push @$msgs, "( ".$nodes_msgs.")";
+                $groups_status_msg{$group_status_str} = $msgs;
+        }
+
 }
+
 
 ## Check resources (option -r)
 #
@@ -334,6 +396,44 @@ if (($opt_resources) or ($opt_all)){
 
 
 ### Subroutines
+
+sub get_status {
+        my $option = shift; # groups OR resources
+        my @nodes = shift;
+
+        my $status_ok = 0;
+        my $status_str;
+        # If at least one node is Online -> OK
+        # If not -> the status will be the "worse" one.
+        foreach my $node ( @nodes ){
+                my $node_status_str;
+                if ( $option eq "groups" ){
+                        $node_status_str = $groups_cluster_status{$node->{status}};
+                } elsif ( $option eq "resources" ) {
+                        $node_status_str = $resources_cluster_status{$node->{status}};
+                } else {
+                        # TODO: exit $ERRORS('UNKNOWN')
+                        exit 1;
+                }
+                if ($node_status_str eq "OK"){
+                        $status_ok = 1;
+                        $status_str = $node_status_str;
+                        last;
+                } else {
+                        if ( ! defined($status_str) ) {
+                                $status_str = $node_status_str;
+                        } elsif ( $service_status_str{$status_str} < $service_status_str{$node_status_str} )  {
+                                $status_str = $node_status_str;
+                        }
+                }
+        }
+
+        if ( $status_ok ) {
+                return "OK";
+        } else {
+                return $status_str;
+        }
+}
 
 sub print_usage() {
 	printf "\n";
