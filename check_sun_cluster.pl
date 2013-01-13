@@ -205,7 +205,7 @@ if (($opt_quorum) or ($opt_all)){
 }
 
 
-## Check transport paths (option -t)
+# Check transport paths (option -t)
 #
 # Check the status of the interconnect paths.
 #
@@ -214,7 +214,6 @@ if (($opt_quorum) or ($opt_all)){
 #   Path online   -> [ OK ]
 #   waiting       -> [ WARNING ]
 #   faulted       -> [ CRITICAL ]
-#
 
 my $transport_check = 0;
 my $transport_status = 0;
@@ -267,7 +266,7 @@ if (($opt_transport) or ($opt_all)){
 }
 
 
-## Check resource groups (option -g)
+# Check resource groups (option -g)
 #
 # Check status for resource groups
 #
@@ -278,7 +277,6 @@ if (($opt_transport) or ($opt_all)){
 #   Offline       -> [ CRITICAL ]
 #   Online        -> [ OK ]
 #   Unknown       -> [ WARNING ]
-#
 
 my $groups_check = 0;
 my $groups_status = 0;
@@ -359,7 +357,7 @@ if (($opt_groups) or ($opt_all)){
 }
 
 
-## Check resources (option -r)
+# Check resources (option -r)
 #
 # Check the status of the resources.
 #
@@ -374,26 +372,90 @@ if (($opt_groups) or ($opt_all)){
 # Starting             -> [ WARNING ]
 # Stopping             -> [ CRITICAL ]
 # Not_online           -> [ CRITICAL ]
-#
+
+my $resources_check = 0;
+my $resources_status = 0;
+# Resources and Nagios status equialences
+my %resources_cluster_status = ( "Online" => "OK",
+                                 "Offline" => "CRITICAL",
+                                 "Start_failed" => "CRITICAL",
+                                 "Stop_failed" => "CRITICAL",
+                                 "Monitor_failed" => "CRITICAL",
+                                 "Online_not_monitored" => "WARNING",
+                                 "Starting" => "WARNING",
+                                 "Stopping" => "CRITICAL",
+                                 "Not_online" => "CRITICAL"
+                               );
 
 if (($opt_resources) or ($opt_all)){
+        $num_options++;
+        $resources_check = 1;
+	# Run the command 'clrs status' and get a list
+        # of the status of the cluster resources
         open (RESOURCES_STATUS, "$cluster_binary/clrs status |")
                 or die "Couldn't execute program: $!";
+        # %resources = { "resource_name" => [ %node1, %node2, ... ]
+        # %node1 = { "node_name" => node_name, "status" => status }
+        my %resources = ();
         while (<RESOURCES_STATUS>){
                 next unless /(Resource Name)/;
                 my $match = $1;
-                print "[$match]\n";
                 my $line = <RESOURCES_STATUS>; # discard dashes
+                my $resource_name;
                 while (!eof){
-                        if ( ! (($line=<RESOURCES_STATUS>) =~ /^\s*$/) ){
-                               print "read: $line";
+                        $line = <RESOURCES_STATUS>;
+                        chomp $line;
+                        if ( $line =~ /^[^\s]/ ){
+                                # If the line starts with a non-space character => new resource
+                                print "resource: $line\n";
+                                my ($node_name, $status, @status_msg);
+                                ($resource_name, $node_name, $status, @status_msg) = split (/[ \t]+/, $line);
+                                my $status_msg_str = join (" ", @status_msg);
+                                my %node = ( "node_name"=>$node_name, "status"=>$status, "status_msg"=>$status_msg_str );
+                                my @nodes = ( \%node );
+                                $resources{$resource_name} = \@nodes;
+                        } elsif ( ! $line =~ /^\s*$/ ) {
+                                # If the line is not blank => node belongs to the previous resources
+                                print "node: $line\n";
+                                my ($space, $node_name, $status, @status_msg) = split(/[ \t]+/, $line);
+                                my $status_msg_str = join (" ", @status_msg);
+                                my %node = ( "node_name"=>$node_name, "status"=>$status, "status_msg"=>$status_msg_str );
+                                #print "node:$node{node_name}, status:$node{status}, status_msg:$node{status_msg}\n";
+                                # TODO: if group_name is not defined => nagios UNKNOWN
+                                my @nodes = @{$resources{$resource_name}};
+                                push @nodes, \%node;
+                                $resources{$resource_name} = \@nodes;
+                        } else {
+                                # Blank line => End of resource
+                                print "blank: $line\n";
                         }
                 }
-
         }
         close(RESOURCES_STATUS);
-}
 
+        foreach my $resource_name ( keys %resources ){
+                my $resource_msg;
+                my $resource_status_str;
+                my $nodes_msgs = "";
+                my $msgs;
+                # Get the resource message: all the nodes messages
+                foreach my $node ( @{$resources{$resource_name}} ){
+                        $nodes_msgs = $nodes_msgs . "node:$node->{node_name} status:$node->{status} status_message:\"$node->{status_msg}\" ";
+                }
+                # Get the status of the resource (passed @nodes to the function).
+                $resource_status_str = get_status('resources', @{$resources{$resource_name}});
+                # Set the resource status message
+                if ( ! exists $resources_status_msg{$resource_status_str} ){
+                        $msgs = [];
+                } else {
+                        $msgs = $resources_status_msg{$resource_status_str};
+                }
+                $resources_status = $service_status_str{$resource_status_str} if ( $service_status_str{$resource_status_str} > $resources_status );
+                push @$msgs, "( ".$nodes_msgs.")";
+                $resources_status_msg{$resource_status_str} = $msgs;
+        }
+
+}
 
 ### Subroutines
 
