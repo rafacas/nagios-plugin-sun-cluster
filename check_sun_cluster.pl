@@ -337,12 +337,13 @@ if (($opt_groups) or ($opt_all)){
                 my $group_status_str;
                 my $nodes_msgs = "";
                 my $msgs;
+		my @nodes = @{$groups{$group_name}};
                 # Get the group message: all the nodes messages
-                foreach my $node ( @{$groups{$group_name}} ){
+                foreach my $node ( @nodes ){
                         $nodes_msgs = $nodes_msgs . "node:$node->{node_name} suspended:$node->{suspended} status:$node->{status} ";
                 }
                 # Get the status of the group (passed @nodes to the function).
-                $group_status_str = get_status('groups', @{$groups{$group_name}});
+                $group_status_str = get_status('groups', @nodes);
                 # Set the group status message
                 if ( ! exists $groups_status_msg{$group_status_str} ){
                         $msgs = [];
@@ -350,7 +351,7 @@ if (($opt_groups) or ($opt_all)){
                         $msgs = $groups_status_msg{$group_status_str};
                 }
                 $groups_status = $service_status_str{$group_status_str} if ( $service_status_str{$group_status_str} > $groups_status );
-                push @$msgs, "( ".$nodes_msgs.")";
+		push @$msgs, "group:$group_name ( ".$nodes_msgs.")";
                 $groups_status_msg{$group_status_str} = $msgs;
         }
 
@@ -438,12 +439,13 @@ if (($opt_resources) or ($opt_all)){
                 my $resource_status_str;
                 my $nodes_msgs = "";
                 my $msgs;
+		my @nodes = @{$resources{$resource_name}};
                 # Get the resource message: all the nodes messages
-                foreach my $node ( @{$resources{$resource_name}} ){
+                foreach my $node ( @nodes ){
                         $nodes_msgs = $nodes_msgs . "node:$node->{node_name} status:$node->{status} status_message:\"$node->{status_msg}\" ";
                 }
                 # Get the status of the resource (passed @nodes to the function).
-                $resource_status_str = get_status('resources', @{$resources{$resource_name}});
+                $resource_status_str = get_status('resources', @nodes);
                 # Set the resource status message
                 if ( ! exists $resources_status_msg{$resource_status_str} ){
                         $msgs = [];
@@ -451,7 +453,7 @@ if (($opt_resources) or ($opt_all)){
                         $msgs = $resources_status_msg{$resource_status_str};
                 }
                 $resources_status = $service_status_str{$resource_status_str} if ( $service_status_str{$resource_status_str} > $resources_status );
-                push @$msgs, "( ".$nodes_msgs.")";
+		push @$msgs, "resource:$resource_name ( ".$nodes_msgs.")";
                 $resources_status_msg{$resource_status_str} = $msgs;
         }
 }
