@@ -5,14 +5,14 @@
 
 use POSIX;
 use strict;
-use lib utils.pm;
+use lib "/home/rafacas/projects/nagios-plugin-sun-cluster/check_sun_cluster_plugin";
 use utils qw($TIMEOUT %ERRORS &support);
 use Getopt::Long;
 use vars qw($timeout $opt_V $opt_h $opt_nodes $opt_quorum $opt_transport $opt_groups $opt_resources $opt_all $cluster_binary);
 
 my $PROGNAME = "check_sun_cluster";
 my $VERSION = "1.0";
-my $BIN_PATH = "/usr/cluster/bin";
+my $BIN_PATH = "/home/rafacas/projects/nagios-plugin-sun-cluster/github/t";
 
 sub print_help();
 sub print_usage();
@@ -458,12 +458,10 @@ if (($opt_resources) or ($opt_all)){
         }
 }
 
-# Print return data
+# Print return data and exit
 print_cluster_status();
-
-#TODO: use $ERRORS{'OK'}
-exit 0;
-
+my $exit_status = cluster_status();
+exit $ERRORS{"$exit_status"};
 
 ### Subroutines
 
@@ -482,8 +480,8 @@ sub get_status {
                 } elsif ( $option eq "resources" ) {
                         $node_status_str = $resources_cluster_status{$node->{status}};
                 } else {
-                        # TODO: exit $ERRORS('UNKNOWN')
-                        exit 1;
+			print "UNKNOWN - option must be 'groups' or 'resources'\n";
+                        exit $ERRORS{"UNKNOWN"};
                 }
                 if ($node_status_str eq "OK"){
                         $status_ok = 1;
