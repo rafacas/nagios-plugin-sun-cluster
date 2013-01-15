@@ -74,7 +74,7 @@ nrpe.cfg file:
 #### Check Quorum
 
 The plugin uses the command <code>clquorum status</code> to get the quorum device status:
-<pre><code># clq status
+<pre><code>$ clq status
 
 Cluster Quorum ===
 
@@ -91,6 +91,7 @@ Node Name        Present       Possible       Status
 ---------        -------       --------       ------
 vincent          1             1              Online
 theo             1             1              Online
+</code></pre>
 
 The following are the possible states of a node:
 <pre><code>+----------------+---------------+
@@ -112,11 +113,76 @@ services.cfg file:
 
 nrpe.cfg file:
 <pre><code>command[check_sun_cluster_quorum]=/usr/local/nagios/libexec/check_sun_cluster.pl -q</code></pre>
---- Quorum Votes by Device ---
 
-Device Name        Present         Possible         Status
------------        -------         --------         ------
-d4                 1               1                Online
+#### Check Transport Paths
+
+The plugin uses the command <code>clintr status</code> to get the status of the interconnect paths:
+<pre><code>$clintr status
+
+Cluster Transport Paths ===
+
+Endpoint1          Endpoint2          Status
+---------          ---------          ------
+vincent:qfe0       theo:qfe0          Path online
+vincent:hme0       theo:hme0          Path online
 </code></pre>
 
+The following are the possible states of a transport path:
+<pre><code>+-------------------+---------------+
+| Transport status  | Nagios status |
++-------------------+---------------+
+| Path online       | OK            |
+| waiting           | WARNING       |
+| faulted           | CRITICAL      |
++-------------------+---------------+
+</code></pre>
+
+services.cfg file:
+<pre><code>define service {
+    use                     generic-service
+    hostgroup_name          Sun Cluster
+    service_description     Sun Cluster Nodes
+    check_command           check_nrpe!check_sun_cluster_transport
+}
+</code></pre>
+
+nrpe.cfg file:
+<pre><code>command[check_sun_cluster_transport]=/usr/local/nagios/libexec/check_sun_cluster.pl -t</code></pre>
+
+#### Check Resources Groups
+
+The plugin uses the command <code>clrg status</code> to get the status of the resource groups:
+<pre><code>$clrg status
+
+Cluster Resource Groups ===
+
+Group Name      Node Name         Suspended      Status
+----------      ---------         ---------      ------
+nfs-rg          vincent           No             Offline
+                theo              No             Online
+</code></pre>
+
+The following are the possible states of a resource group:
+<pre><code>+------------------------+---------------+
+| Resource Group status  | Nagios status |
++------------------------+---------------+
+| Online                 | OK            |
+| Unknown                | WARNING       |
+| Degraded               | CRITICAL      |
+| Faulted                | CRITICAL      |
+| Offline                | CRITICAL      |
++------------------------+---------------+
+</code></pre>
+
+services.cfg file:
+<pre><code>define service {
+    use                     generic-service
+    hostgroup_name          Sun Cluster
+    service_description     Sun Cluster Nodes
+    check_command           check_nrpe!check_sun_cluster_groups
+}
+</code></pre>
+
+nrpe.cfg file:
+<pre><code>command[check_sun_cluster_groups]=/usr/local/nagios/libexec/check_sun_cluster.pl -g</code></pre>
 
