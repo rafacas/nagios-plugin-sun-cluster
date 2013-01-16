@@ -106,7 +106,7 @@ services.cfg file:
 <pre><code>define service {
     use                     generic-service
     hostgroup_name          Sun Cluster
-    service_description     Sun Cluster Nodes
+    service_description     Sun Cluster Quorum
     check_command           check_nrpe!check_sun_cluster_quorum
 }
 </code></pre>
@@ -141,7 +141,7 @@ services.cfg file:
 <pre><code>define service {
     use                     generic-service
     hostgroup_name          Sun Cluster
-    service_description     Sun Cluster Nodes
+    service_description     Sun Cluster Transport Paths
     check_command           check_nrpe!check_sun_cluster_transport
 }
 </code></pre>
@@ -178,7 +178,7 @@ services.cfg file:
 <pre><code>define service {
     use                     generic-service
     hostgroup_name          Sun Cluster
-    service_description     Sun Cluster Nodes
+    service_description     Sun Cluster Resource Groups
     check_command           check_nrpe!check_sun_cluster_groups
 }
 </code></pre>
@@ -186,3 +186,69 @@ services.cfg file:
 nrpe.cfg file:
 <pre><code>command[check_sun_cluster_groups]=/usr/local/nagios/libexec/check_sun_cluster.pl -g</code></pre>
 
+#### Check Resources
+
+The plugin uses the command <code>clrs status</code> to get the status of the resources:
+<pre><code>$clrs status
+
+Cluster Resources ===
+
+Resource Name   Node Name   State         Status Message
+-------------   ---------   -----         --------------
+nfs-stor        vincent     Offline       Offline
+                theo        Online        Online
+
+orangecat-nfs   vincent     Offline       Offline
+                theo        Online        Online - LogicalHostname online.
+
+nfs-res         vincent     Offline       Offline
+                theo        Online        Online - Service is online.
+</code></pre>
+
+The following are the possible states of a resource:
+<pre><code>+----------------------+---------------+
+| Resource status      | Nagios status |
++----------------------+---------------+
+| Online               | OK            |
+| Online_not_monitored | WARNING       |
+| Starting             | WARNING       |
+| Offline              | CRITICAL      |
+| Start_failed         | CRITICAL      |
+| Stop_failed          | CRITICAL      |
+| Monitor_failed       | CRITICAL      |
+| Stopping             | CRITICAL      |
+| Not_online           | CRITICAL      |
++----------------------+---------------+
+</code></pre>
+
+services.cfg file:
+<pre><code>define service {
+    use                     generic-service
+    hostgroup_name          Sun Cluster
+    service_description     Sun Cluster Resources
+    check_command           check_nrpe!check_sun_cluster_resources
+}
+</code></pre>
+
+nrpe.cfg file:
+<pre><code>command[check_sun_cluster_resources]=/usr/local/nagios/libexec/check_sun_cluster.pl -r</code></pre>
+
+#### Check Everything
+
+The option <code>-n<code> checks all the previous options.
+
+services.cfg file:
+<pre><code>define service {
+    use                     generic-service
+    hostgroup_name          Sun Cluster
+    service_description     Sun Cluster 
+    check_command           check_nrpe!check_sun_cluster
+}
+</code></pre>
+
+nrpe.cfg file:
+<pre><code>command[check_sun_cluster]=/usr/local/nagios/libexec/check_sun_cluster.pl -a</code></pre>
+
+If everything is OK the plugin will return:
+
+<pre><code>OK - [NODES OK] [QUORUM OK] [TRANSPORT OK] [GROUPS OK] [RESOURCES OK]</code></pre>
