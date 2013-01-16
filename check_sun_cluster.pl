@@ -519,7 +519,8 @@ sub get_msgs {
         my $status_msgs = shift;
         my $msg = "";
 
-        foreach ( ("UNKNOWN", "CRITICAL", "WARNING", "OK") ){
+	# Return only UNKNOWN, CRITICAL and WARNING messages
+        foreach ( ("UNKNOWN", "CRITICAL", "WARNING") ){
                 if ( exists $status_msgs->{$_} ) {
                         my $msgs = $status_msgs->{$_};
                         foreach ( @$msgs ){
