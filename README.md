@@ -235,7 +235,7 @@ nrpe.cfg file:
 
 #### Check Everything
 
-The option <code>-n<code> checks all the previous options.
+The option <code>-n</code> checks all the previous options.
 
 services.cfg file:
 <pre><code>define service {
