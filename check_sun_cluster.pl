@@ -5,14 +5,14 @@
 
 use POSIX;
 use strict;
-use lib "/home/rafacas/projects/nagios-plugin-sun-cluster/check_sun_cluster_plugin";
+use lib utils.pm;
 use utils qw($TIMEOUT %ERRORS &support);
 use Getopt::Long;
 use vars qw($timeout $opt_V $opt_h $opt_nodes $opt_quorum $opt_transport $opt_groups $opt_resources $opt_all $cluster_binary);
 
 my $PROGNAME = "check_sun_cluster";
 my $VERSION = "1.0";
-my $BIN_PATH = "/home/rafacas/projects/nagios-plugin-sun-cluster/github/t";
+my $BIN_PATH = "/usr/cluster/bin";
 
 sub print_help();
 sub print_usage();
