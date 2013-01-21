@@ -5,21 +5,14 @@
 
 use POSIX;
 use strict;
-use lib "/home/rafacas/projects/nagios-plugin-sun-cluster/check_sun_cluster_plugin";
+use lib utils.pm;
 use utils qw($TIMEOUT %ERRORS &support);
 use Getopt::Long;
 use vars qw($timeout $opt_V $opt_h $opt_nodes $opt_quorum $opt_transport $opt_groups $opt_resources $opt_all $cluster_binary);
 
 my $PROGNAME = "check_sun_cluster";
 my $VERSION = "1.0";
-my $BIN_PATH = "/home/rafacas/projects/nagios-plugin-sun-cluster/github/t";
-
-sub print_help();
-sub print_usage();
-sub process_arguments();
-
-### Validate Arguments
-my $status = process_arguments();
+my $BIN_PATH = "/usr/cluster/bin";
 
 # Just in case of problems, let's not hang Nagios
 $SIG{'ALRM'} = sub {
@@ -52,8 +45,63 @@ my %transport_status_msg = ();
 my %groups_status_msg = ();
 my %resources_status_msg = ();
 
-# Number of options executed
-my $num_options = 0; 
+my $num_options = 0; # Number of options executed
+
+# MAIN
+
+# Validate Arguments
+my $status = process_arguments();
+
+# Check nodes (option -n)
+my $nodes_check = 0;
+my $nodes_status = 0;
+check_nodes() if (($opt_nodes) or ($opt_all));
+
+# Check quorum (option -q)
+my $quorum_check= 0;
+my $quorum_status = 0;
+check_quorum() if (($opt_quorum) or ($opt_all));
+
+# Check transport paths (option -t)
+my $transport_check = 0;
+my $transport_status = 0;
+check_transport_paths() if (($opt_transport) or ($opt_all));
+
+# Check resource groups (option -g)
+my $groups_check = 0;
+my $groups_status = 0;
+## Resources groups and Nagios status equivalences
+my %groups_cluster_status = ( "Degraded" => "CRITICAL",
+                              "Faulted"  => "CRITICAL",
+                              "Offline"  => "CRITICAL",
+                              "Online"   => "OK",
+                              "Unknown"  => "WARNING"
+                            );
+check_resource_groups() if (($opt_groups) or ($opt_all));
+
+# Check resources (option -r)
+my $resources_check = 0;
+my $resources_status = 0;
+## Resources and Nagios status equialences
+my %resources_cluster_status = ( "Online" => "OK",
+                                 "Offline" => "CRITICAL",
+                                 "Start_failed" => "CRITICAL",
+                                 "Stop_failed" => "CRITICAL",
+                                 "Monitor_failed" => "CRITICAL",
+                                 "Online_not_monitored" => "WARNING",
+                                 "Starting" => "WARNING",
+                                 "Stopping" => "CRITICAL",
+                                 "Not_online" => "CRITICAL"
+                               );
+
+check_resources() if (($opt_resources) or ($opt_all));
+
+# Print return data and exit
+print_cluster_status();
+my $exit_status = cluster_status();
+exit $ERRORS{"$exit_status"};
+
+# SUBROUTINES
 
 # Check nodes (option -n)
 #
@@ -62,15 +110,13 @@ my $num_options = 0;
 #    - Online  -> [ OK ]
 #    - Offline -> [ CRITICAL ]
 
-my $nodes_check = 0;
-my $nodes_status = 0;
-if (($opt_nodes) or ($opt_all)){
+sub check_nodes {
     $num_options++;
     $nodes_check = 1;
 
     # Nodes and Nagios status equivalences
     my %nodes_cluster_status = ( "Online"  => "OK",
-                                     "Offline" => "CRITICAL"
+                                 "Offline" => "CRITICAL"
                                );
 
     # Run the command 'clnode status' and get a list
@@ -109,7 +155,6 @@ if (($opt_nodes) or ($opt_all)){
         push @$msgs, $msg;
         $nodes_status_msg{$nodes_cluster_status{$_->{status}}} = $msgs;
     }
-
 }
 
 # Check quorum (option -q)
@@ -122,9 +167,7 @@ if (($opt_nodes) or ($opt_all)){
 #
 # Votes are not checked
 
-my $quorum_check= 0;
-my $quorum_status = 0;
-if (($opt_quorum) or ($opt_all)){
+sub check_quorum {
     $num_options++;
     $quorum_check = 1;
     # Quorum and Nagios status equivalences
@@ -214,9 +257,7 @@ if (($opt_quorum) or ($opt_all)){
 #   waiting       -> [ WARNING ]
 #   faulted       -> [ CRITICAL ]
 
-my $transport_check = 0;
-my $transport_status = 0;
-if (($opt_transport) or ($opt_all)){
+sub check_transport_paths {
     $num_options++;
     $transport_check = 1;
     # Transport and Nagios status equivalences
@@ -262,6 +303,7 @@ if (($opt_transport) or ($opt_all)){
     }
 }
 
+
 # Check resource groups (option -g)
 #
 # Check status for resource groups
@@ -274,17 +316,7 @@ if (($opt_transport) or ($opt_all)){
 #   Online        -> [ OK ]
 #   Unknown       -> [ WARNING ]
 
-my $groups_check = 0;
-my $groups_status = 0;
-# Resources groups and Nagios status equivalences
-my %groups_cluster_status = ( "Degraded" => "CRITICAL",
-                              "Faulted"  => "CRITICAL",
-                              "Offline"  => "CRITICAL",
-                              "Online"   => "OK",
-                              "Unknown"  => "WARNING"
-                            );
-
-if (($opt_groups) or ($opt_all)){
+sub check_resource_groups {
     $num_options++;
     $groups_check = 1;
     # Run the command 'clrg status' and get a list
@@ -368,21 +400,7 @@ if (($opt_groups) or ($opt_all)){
 # Stopping             -> [ CRITICAL ]
 # Not_online           -> [ CRITICAL ]
 
-my $resources_check = 0;
-my $resources_status = 0;
-# Resources and Nagios status equialences
-my %resources_cluster_status = ( "Online" => "OK",
-                                 "Offline" => "CRITICAL",
-                                 "Start_failed" => "CRITICAL",
-                                 "Stop_failed" => "CRITICAL",
-                                 "Monitor_failed" => "CRITICAL",
-                                 "Online_not_monitored" => "WARNING",
-                                 "Starting" => "WARNING",
-                                 "Stopping" => "CRITICAL",
-                                 "Not_online" => "CRITICAL"
-                               );
-
-if (($opt_resources) or ($opt_all)){
+sub check_resources {
     $num_options++;
     $resources_check = 1;
     # Run the command 'clrs status' and get a list
@@ -451,13 +469,6 @@ if (($opt_resources) or ($opt_all)){
         $resources_status_msg{$resource_status_str} = $msgs;
         }
 }
-
-# Print return data and exit
-print_cluster_status();
-my $exit_status = cluster_status();
-exit $ERRORS{"$exit_status"};
-
-### Subroutines
 
 sub get_status {
     my $option = shift; # groups OR resources
@@ -591,7 +602,7 @@ sub print_cluster_status {
     print "\n";
 }
 
-sub print_usage() {
+sub print_usage {
     printf "\n";
     printf "usage: \n";
     printf "check_sun_cluster [-n] [-q] [-t] [-g] [-r] [-a] [-T=<timeout>] [-b] [-V] [-h]\n";
@@ -599,7 +610,7 @@ sub print_usage() {
     exit $ERRORS{"UNKNOWN"};
 }
 
-sub print_help() {
+sub print_help {
     print "$PROGNAME v$VERSION";
     print_usage();
     printf "check_sun_cluster plugin for Nagios monitors the status \n";
@@ -620,7 +631,7 @@ sub print_help() {
     
 }
 
-sub process_arguments() {
+sub process_arguments {
     Getopt::Long::config('bundling');
     $status = GetOptions(
             "V"   => \$opt_V,          "version"   => \$opt_V,
