@@ -93,10 +93,9 @@ my %resources_cluster_status = ( "Online" => "OK",
                                  "Stopping" => "CRITICAL",
                                  "Not_online" => "CRITICAL"
                                );
-
 check_resources() if (($opt_resources) or ($opt_all));
 
-# Print return data and exit
+# Print cluster status and exit
 print_cluster_status();
 my $exit_status = cluster_status();
 exit $ERRORS{"$exit_status"};
@@ -677,5 +676,4 @@ sub process_arguments {
     }
 
 }
-## End validation
 
