@@ -1,0 +1,22 @@
+#!/bin/bash
+
+if [ $# != 1 ]; then
+   echo "Usage: clrg status"
+   exit 1
+else
+   if [ "$1" != "status" ]; then
+      echo "$1 is not a valid argument."
+      exit 1
+   fi
+fi
+
+cat << EOF
+
+Cluster Resource Groups ===
+
+Group Name      Node Name         Suspended      Status
+----------      ---------         ---------      ------
+nfs-rg          vincent           No             Offline
+                theo              No             Online
+
+EOF

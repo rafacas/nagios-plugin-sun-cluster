@@ -1,0 +1,22 @@
+#!/bin/bash
+
+if [ $# != 1 ]; then
+   echo "Usage: clintr status"
+   exit 1
+else
+   if [ "$1" != "status" ]; then
+      echo "$1 is not a valid argument."
+      exit 1
+   fi
+fi
+
+cat << EOF
+
+Cluster Transport Paths ===
+
+Endpoint1          Endpoint2          Status
+---------          ---------          ------
+vincent:qfe0       theo:qfe0          Path online
+vincent:hme0       theo:hme0          Path online
+
+EOF

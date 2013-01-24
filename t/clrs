@@ -1,0 +1,28 @@
+#!/bin/bash
+
+if [ $# != 1 ]; then
+   echo "Usage: clrs status"
+   exit 1
+else
+   if [ "$1" != "status" ]; then
+      echo "$1 is not a valid argument."
+      exit 1
+   fi
+fi
+
+cat << EOF
+
+Cluster Resources ===
+
+Resource Name   Node Name   State         Status Message
+-------------   ---------   -----         --------------
+nfs-stor        vincent     Offline       Offline
+                theo        Online        Online
+
+orangecat-nfs   vincent     Offline       Offline
+                theo        Online        Online - LogicalHostname online.
+
+nfs-res         vincent     Offline       Offline
+                theo        Online        Online - Service is online.
+
+EOF
