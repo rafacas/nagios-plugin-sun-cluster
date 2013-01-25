@@ -3,7 +3,6 @@
 # check_sun_cluster - Nagios plugin to check the status of a 
 # Sun Cluster (version 3.2 or greater)
 
-use POSIX;
 use strict;
 use lib utils.pm;
 use utils qw($TIMEOUT %ERRORS &support);
@@ -129,7 +128,6 @@ sub check_nodes {
         my $line = <NODE_STATUS>; # discard dashes
         while (!eof){
             if ( !(($line=<NODE_STATUS>) =~ /^\s*$/) ){
-                print "read: $line";
                 my ($node, $status) = split(/[ \t]+/, $line);
                 chomp $status;
                 my %node = ("name"=>$node, "status"=>$status);
@@ -190,14 +188,12 @@ sub check_quorum {
         CASES:
             "Needed" eq $match && do {
                 $line=<QUORUM_STATUS>;
-                print "read: $line";
                 (my $space, $votes_needed, $votes_present, $votes_possible) = split(/[ \t]+/, $line);
                 chomp $votes_possible;
                 next;
             };
             "Node Name" eq $match && do {
                 while ( ! (($line=<QUORUM_STATUS>) =~ /^\s*$/) ){
-                    print "read: $line";
                     my ($node, $present, $possible, $status) = split(/[ \t]+/, $line);
                     chomp $status;
                     my %node = ("name"=>$node, "present"=>$present,
@@ -207,7 +203,6 @@ sub check_quorum {
             };
             "Device Name" eq $match && do {
                 while ( ! (($line=<QUORUM_STATUS>) =~ /^\s*$/) ){
-                    print "read: $line";
                     my ($device, $present, $possible, $status) = split(/[ \t]+/, $line);
                     chomp $status;
                     my %device = ("name"=>$device, "present"=>$present,
@@ -275,7 +270,6 @@ sub check_transport_paths {
         my $line = <TRANSPORT_STATUS>; # discard dashes
         while (!eof){
             if ( ! (($line=<TRANSPORT_STATUS>) =~ /^\s*$/) ){
-                print "read: $line";
                 my ($endpoint1, $endpoint2, @status) = split(/[ \t]+/, $line);
                 my $status_str = join (" ", @status);
                 chomp $status_str;
@@ -335,7 +329,6 @@ sub check_resource_groups {
             chomp $line;
             if ( $line =~ /^[^\s]/ ){
                 # If the line starts with a non-space character => new group
-                print "group: $line\n";
                 my ($node_name, $suspended, $status);
                 ($group_name, $node_name, $suspended, $status) = split (/[ \t]+/, $line);
                 my %node = ( "node_name"=>$node_name, "suspended"=>$suspended, "status"=>$status );
@@ -343,7 +336,6 @@ sub check_resource_groups {
                 $groups{$group_name} = \@nodes;
             } elsif ( ! $line =~ /^\s*$/ ) {
                 # If the line is not blank => node belongs to the previous group
-                print "node: $line\n";
                 my ($space, $node_name, $suspended, $status) = split(/[ \t]+/, $line);
                 my %node = ( "node_name"=>$node_name, "suspended"=>$suspended, "status"=>$status );
                 # TODO: if group_name is not defined => nagios UNKNOWN
@@ -352,7 +344,6 @@ sub check_resource_groups {
                 $groups{$group_name} = \@nodes;
             } else {
                 # Blank line => End of group
-                print "blank: $line\n";
             }
         }
     }
@@ -419,7 +410,6 @@ sub check_resources {
             chomp $line;
             if ( $line =~ /^[^\s]/ ){
                 # If the line starts with a non-space character => new resource
-                print "resource: $line\n";
                 my ($node_name, $status, @status_msg);
                 ($resource_name, $node_name, $status, @status_msg) = split (/[ \t]+/, $line);
                 my $status_msg_str = join (" ", @status_msg);
@@ -428,18 +418,15 @@ sub check_resources {
                 $resources{$resource_name} = \@nodes;
             } elsif ( ! $line =~ /^\s*$/ ) {
                 # If the line is not blank => node belongs to the previous resources
-                print "node: $line\n";
                 my ($space, $node_name, $status, @status_msg) = split(/[ \t]+/, $line);
                 my $status_msg_str = join (" ", @status_msg);
                 my %node = ( "node_name"=>$node_name, "status"=>$status, "status_msg"=>$status_msg_str );
-                #print "node:$node{node_name}, status:$node{status}, status_msg:$node{status_msg}\n";
                 # TODO: if group_name is not defined => nagios UNKNOWN
                 my @nodes = @{$resources{$resource_name}};
                 push @nodes, \%node;
                 $resources{$resource_name} = \@nodes;
             } else {
                 # Blank line => End of resource
-                print "blank: $line\n";
             }
         }
     }
