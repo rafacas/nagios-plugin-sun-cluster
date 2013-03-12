@@ -588,20 +588,12 @@ sub print_cluster_status {
     print "\n";
 }
 
-sub print_usage {
-    printf "\n";
-    printf "usage: \n";
-    printf "check_sun_cluster [-n] [-q] [-t] [-g] [-r] [-a] [-T=<timeout>] [-b] [-V] [-h]\n";
-    printf "\n";
-    exit $ERRORS{"UNKNOWN"};
-}
-
 sub print_help {
-    print "$PROGNAME v$VERSION";
-    print_usage();
+    print "$PROGNAME v$VERSION\n";
     printf "check_sun_cluster plugin for Nagios monitors the status \n";
     printf "of a Sun Cluster (version 3.2 or greater)\n";
     printf "\nUsage:\n";
+    printf "check_sun_cluster [-n] [-q] [-t] [-g] [-r] [-a] [-T=<timeout>] [-b] [-V] [-h]\n";
     printf "   -n (--nodes)      check nodes are online\"\n";
     printf "   -q (--quorum)     check quorum\n";
     printf "   -t (--transport)  check transport paths\n";
@@ -614,7 +606,7 @@ sub print_help {
     printf "   -V (--version)    Plugin version\n";
     printf "   -h (--help)       usage help \n\n";
     printf "Note: Either -n or -q or -t or -g or -r or -a must be specified.\n\n";
-    
+    exit $ERRORS{"UNKNOWN"};
 }
 
 sub process_arguments {
