@@ -252,3 +252,15 @@ nrpe.cfg file:
 If everything is OK the plugin will return:
 
 <pre><code>OK - [NODES OK] [QUORUM OK] [TRANSPORT OK] [GROUPS OK] [RESOURCES OK]</code></pre>
+
+## Author
+* Rafael Casado Sánchez
+
+### Contributors
+* Johannes Egger
+
+## Contact
+Email your feedback at rafacas@gmail.com
+
+You also can report bugs or suggest features using issue tracker at GitHub https://github.com/rafacas/nagios-plugin-sun-cluster/issues
+

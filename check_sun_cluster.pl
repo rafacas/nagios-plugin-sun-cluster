@@ -13,13 +13,6 @@ my $PROGNAME = "check_sun_cluster";
 my $VERSION = "1.0";
 my $BIN_PATH = "/usr/cluster/bin";
 
-# Just in case of problems, let's not hang Nagios
-$SIG{'ALRM'} = sub {
-    print ("ERROR: No response from sun cluster (alarm)\n");
-    exit $ERRORS{"UNKNOWN"};
-};
-alarm($timeout);
-
 # Nagios service status: OK < WARNING < CRITICAL < UNKNOWN
 my %service_status_str = ( "OK"       => 0,
                            "WARNING"  => 1,
@@ -50,6 +43,13 @@ my $num_options = 0; # Number of options executed
 
 # Validate Arguments
 my $status = process_arguments();
+
+# Just in case of problems, let's not hang Nagios
+$SIG{'ALRM'} = sub {
+    print ("ERROR: No response from sun cluster (alarm)\n");
+    exit $ERRORS{"UNKNOWN"};
+};
+alarm($timeout);
 
 # Check nodes (option -n)
 my $nodes_check = 0;
