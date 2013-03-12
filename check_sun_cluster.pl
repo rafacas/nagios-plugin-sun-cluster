@@ -361,7 +361,7 @@ sub check_resource_groups {
                 $nodes_msgs = $nodes_msgs . "node:$node->{node_name} suspended:$node->{suspended} status:$node->{status} ";
             }
             # Get the status of the group (passed @nodes to the function).
-            $group_status_str = get_status('groups', @nodes);
+            $group_status_str = get_status('groups', \@nodes);
             # Set the group status message
             if ( ! exists $groups_status_msg{$group_status_str} ){
                 $msgs = [];
@@ -443,7 +443,7 @@ sub check_resources {
             $nodes_msgs = $nodes_msgs . "node:$node->{node_name} status:$node->{status} status_message:\"$node->{status_msg}\" ";
         }
         # Get the status of the resource (passed @nodes to the function).
-        $resource_status_str = get_status('resources', @nodes);
+        $resource_status_str = get_status('resources', \@nodes);
         # Set the resource status message
         if ( ! exists $resources_status_msg{$resource_status_str} ){
             $msgs = [];
@@ -458,7 +458,8 @@ sub check_resources {
 
 sub get_status {
     my $option = shift; # groups OR resources
-    my @nodes = shift;
+    my $nref = shift;
+    my @nodes = @$nref;
 
     my $status_ok = 0;
     my $status_str;
